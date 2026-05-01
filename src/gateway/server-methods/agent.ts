@@ -287,10 +287,19 @@ function dispatchAgentRunFromGateway(params: {
   }
   void agentCommandFromIngress(params.ingressOpts, defaultRuntime, params.context.deps)
     .then((result) => {
+      const aborted = result?.meta?.aborted === true;
+      if (shouldTrackTask) {
+        tryFinalizeTrackedAgentTask({
+          runId: params.runId,
+          status: aborted ? "timed_out" : "succeeded",
+          terminalSummary: aborted ? "aborted" : "completed",
+        });
+      }
       const payload = {
         runId: params.runId,
-        status: "ok" as const,
-        summary: "completed",
+        status: aborted ? ("timeout" as const) : ("ok" as const),
+        summary: aborted ? "aborted" : "completed",
+        ...(aborted ? { stopReason: result?.meta?.stopReason ?? "rpc" } : {}),
         result,
       };
       setGatewayDedupeEntry({
@@ -307,25 +316,36 @@ function dispatchAgentRunFromGateway(params: {
       params.respond(true, payload, undefined, { runId: params.runId });
     })
     .catch((err) => {
+      const aborted = isAbortError(err);
+      if (shouldTrackTask) {
+        const error = String(err);
+        tryFinalizeTrackedAgentTask({
+          runId: params.runId,
+          status: resolveFailedTrackedAgentTaskStatus(err),
+          error,
+          terminalSummary: error,
+        });
+      }
       const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
       const payload = {
         runId: params.runId,
-        status: "error" as const,
-        summary: String(err),
+        status: aborted ? ("timeout" as const) : ("error" as const),
+        summary: aborted ? "aborted" : String(err),
+        ...(aborted ? { stopReason: "rpc" } : {}),
       };
       setGatewayDedupeEntry({
         dedupe: params.context.dedupe,
         key: `agent:${params.idempotencyKey}`,
         entry: {
           ts: Date.now(),
-          ok: false,
+          ok: aborted,
           payload,
-          error,
+          ...(aborted ? {} : { error }),
         },
       });
-      params.respond(false, payload, error, {
+      params.respond(aborted, payload, aborted ? undefined : error, {
         runId: params.runId,
-        error: formatForLog(err),
+        ...(aborted ? {} : { error: formatForLog(err) }),
       });
     });
 }
