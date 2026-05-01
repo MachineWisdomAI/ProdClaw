@@ -1,6 +1,13 @@
 # Repository Guidelines
 
-- Repo: https://github.com/openclaw/openclaw
+- Repo: `https://github.com/MachineWisdomAI/ProdClaw`
+- Downstream: ProdClaw is a production-stability downstream of OpenClaw.
+  Keep changes generic to the runtime; no private deployment product,
+  customer, host, tenant, OAuth bridge, or fleet-operation details belong here.
+- Upstream: `https://github.com/openclaw-org/openclaw`. Intake upstream only
+  through explicit review PRs; do not auto-merge upstream.
+- Releases: ProdClaw uses GA and LTS maturity channels with SemVer tags. Do not
+  ship OpenClaw date-versioned tags as ProdClaw releases.
 - In chat replies, file references must be repo-root relative only (example: `extensions/telegram/src/index.ts:80`); never absolute paths or `~/...`.
 - Do not edit files covered by security-focused `CODEOWNERS` rules unless a listed owner explicitly asked for the change or is already reviewing it with you. Treat those paths as restricted surfaces, not drive-by cleanup.
 
