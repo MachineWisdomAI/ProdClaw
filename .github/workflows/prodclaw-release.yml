@@ -257,7 +257,8 @@ jobs:
           # TODO: attach SLSA provenance or sigstore signing here once available.
           # See docs/reference/prodclaw-release-policy.md "Release Gate" section.
           gh release upload "$TAG" "$ARTIFACT" "$CHECKSUM" "$METADATA"
-
+          # TODO: attach SLSA provenance or sigstore signing here once available.
+          # See docs/reference/prodclaw-release-policy.md "Release Gate" section.
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
