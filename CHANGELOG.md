@@ -26,6 +26,9 @@ Docs: https://docs.openclaw.ai
 
 ### Fixes
 
+- Agents/sessions: emit a terminal lifecycle backstop when embedded timeout/error turns return without `agent_end`, so Gateway sessions no longer stay stuck in `running` after failover surfaces a timeout. Fixes #74607. Thanks @millerc79.
+- Agents/Codex: bound embedded-run cleanup, trajectory flushing, and command-lane task timeouts after runtime failures, so Discord and other chat sessions return to idle instead of staying stuck in processing. Thanks @vincentkoc.
+- Heartbeat/exec: consume successful metadata-only async exec completions silently so Telegram and other chat surfaces no longer ask users for missing command logs after `No session found`. Fixes #74595. Thanks @gkoch02.
 - Web fetch: add a documented `tools.web.fetch.ssrfPolicy.allowIpv6UniqueLocalRange` opt-in and thread it through cache keys and DNS/IP checks so trusted fake-IP proxy stacks using `fc00::/7` can work without broad private-network access. Fixes #74351. Thanks @jeffrey701.
 - Anthropic/Meridian: preserve text and thinking content seeded on `content_block_start` in anthropic-messages streams, so `[thinking, text]` replies no longer persist as empty turns or trigger empty-response fallbacks. Fixes #74410. Thanks @vyctorbrzezowski.
 - Channels/Matrix: complete the cross-signing handshake on `openclaw matrix verify confirm-sas` so the operator's other Matrix device clears its `Verifying…` loop instead of staying stuck after the agent confirms. (#74542) Thanks @nklock.
@@ -227,6 +230,9 @@ Docs: https://docs.openclaw.ai
 - Configure/models: keep the model picker scoped to the selected manifest provider and enable its bundled plugin before catalog lookup, so choosing GitHub Copilot no longer falls back to Ollama or skips the catalog. (#74322) Thanks @obviyus.
 - Auto-reply/subagents: reject `/focus` from leaf subagents and scope fallback target resolution to the requesting subagent's children, so subagents cannot bind conversations outside their control boundary. (#73613) Thanks @drobison00.
 - Gateway/startup: skip inherited workspace startup memory for sandboxed spawned sessions without real-workspace write access, so `/new` no longer preloads host workspace memory into isolated child runs. (#73611) Thanks @drobison00.
+- Agents/tool policy: validate caller group IDs against session or spawned context before applying group-scoped tool policies or persisting gateway group metadata, so forged group IDs cannot unlock more permissive tools. (#73720) Thanks @mmaps.
+- Commands: keep channel-prefixed owner allowlist entries scoped to matching providers so webchat command contexts cannot inherit external channel owners. Thanks @zsxsoft.
+- Auth/device pairing: bound bootstrap handoff token issuance, redemption, and approved pairing baselines to the documented per-role scope allowlist, so bootstrap approvals cannot persistently grant `operator.admin`, `operator.pairing`, or `node.exec` scopes. Thanks @eleqtrizit.
 
 ## 2026.4.27
 
@@ -2222,6 +2228,7 @@ Docs: https://docs.openclaw.ai
 - Memory/active-memory: default QMD recall to search and surface better search-path telemetry so memory-backed recall works more predictably out of the box. (#65068) Thanks @Takhoffman.
 - Docs/providers: expand bundled provider docs with richer capability, env-var, and setup guidance across provider pages.
 - Docs/memory-wiki: add the recommended QMD + bridge-mode hybrid recipe plus zero-artifact troubleshooting guidance for `memory-wiki` bridge setups. (#63165) Thanks @sercada and @vincentkoc.
+- Agents/commitments: add opt-in inferred follow-up commitments with hidden batched extraction, per-agent/per-channel scoping, heartbeat delivery, CLI management, a simple `commitments.enabled`/`commitments.maxPerDay` config, and heartbeat-interval due-time clamping so magical check-ins do not echo immediately. (#74189) Thanks @vignesh07.
 
 ### Fixes
 
