@@ -77,7 +77,7 @@ jobs:
           containing_branches="$(git branch -r --contains HEAD | sed 's/^[ *]*//' || true)"
           has_ga=false
           has_lts=false
-          if printf '%s\n' "$containing_branches" | grep -Eq '^(origin/main|origin/ga/)'; then
+          if printf '%s\n' "$containing_branches" | grep -Eq '^(origin/main$|origin/ga/)'; then
             has_ga=true
           fi
           if printf '%s\n' "$containing_branches" | grep -Eq '^origin/lts/'; then
