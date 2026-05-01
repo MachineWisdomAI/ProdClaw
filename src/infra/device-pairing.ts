@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { normalizeDeviceAuthScopes } from "../shared/device-auth.js";
 import {
   resolveBootstrapProfileScopesForRole,
+  resolveBootstrapProfileScopesForRoles,
   type DeviceBootstrapProfile,
 } from "../shared/device-bootstrap-profile.js";
 import {
@@ -650,7 +651,10 @@ export async function approveBootstrapDevicePairing(
   // node/operator baseline from the verified bootstrap profile without routing
   // operator scope approval through the generic interactive approval checker.
   const approvedRoles = mergeRoles(bootstrapProfile.roles) ?? [];
-  const approvedScopes = normalizeDeviceAuthScopes([...bootstrapProfile.scopes]);
+  const approvedScopes = resolveBootstrapProfileScopesForRoles(
+    approvedRoles,
+    bootstrapProfile.scopes,
+  );
   return await withLock(async () => {
     const state = await loadState(baseDir);
     const pending = state.pendingById[requestId];
@@ -688,6 +692,10 @@ export async function approveBootstrapDevicePairing(
       pending.scopes,
       approvedScopes,
     );
+    const sanitizedApprovedScopes = resolveBootstrapProfileScopesForRoles(
+      approvedRoles,
+      nextApprovedScopes ?? [],
+    );
     const tokens = existing?.tokens ? { ...existing.tokens } : {};
     for (const roleForToken of approvedRoles) {
       const existingToken = tokens[roleForToken];
@@ -714,8 +722,8 @@ export async function approveBootstrapDevicePairing(
       clientMode: pending.clientMode,
       role: pending.role,
       roles,
-      scopes: nextApprovedScopes,
-      approvedScopes: nextApprovedScopes,
+      scopes: sanitizedApprovedScopes,
+      approvedScopes: sanitizedApprovedScopes,
       remoteIp: pending.remoteIp,
       tokens,
       createdAtMs: existing?.createdAtMs ?? now,
