@@ -11,7 +11,7 @@ permissions:
 jobs:
   semantic-pr:
     name: Validate PR
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check PR title
@@ -41,10 +41,10 @@ jobs:
 
   prodclaw-governance:
     name: ProdClaw Governance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
 
@@ -57,6 +57,7 @@ jobs:
             docs/reference/prodclaw-release-policy.md
             AGENTS.md
             CONTRIBUTING.md
+            PRODCLAW_UPSTREAM.json
             .github/workflows/prodclaw-governance.yml
             .github/workflows/prodclaw-release.yml
           )
@@ -92,8 +93,9 @@ jobs:
             "2026.4.27",
             "v1.0",
             "v1.0.0-beta.1",
+            "v0.1.0",
           ];
-          const pattern = /^v(?!\d{4}\.)\d+\.\d+\.\d+(?:-rc\.[1-9]\d*)?$/;
+          const pattern = /^v(?!\d{4}\.)[1-9]\d*\.\d+\.\d+(?:-rc\.[1-9]\d*)?$/;
           for (const tag of accepted) {
             if (!pattern.test(tag)) {
               throw new Error(`expected accepted ProdClaw tag: ${tag}`);

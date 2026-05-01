@@ -34,9 +34,12 @@ ProdClaw uses SemVer:
 - GA and LTS tag: `vMAJOR.MINOR.PATCH`
 - Release candidate tag: `vMAJOR.MINOR.PATCH-rc.N`
 
-Do not use upstream OpenClaw date versions as ProdClaw release versions. The
-upstream OpenClaw version, tag, commit, and release date belong in release
-metadata.
+ProdClaw release tags start at major version 1. Do not use upstream OpenClaw
+date versions as ProdClaw release versions. The upstream OpenClaw version, tag,
+commit, and release date belong in release metadata. Keep
+`PRODCLAW_UPSTREAM.json` current so packaged release metadata can distinguish
+ProdClaw's SemVer package version from the upstream OpenClaw package version it
+is based on.
 
 ## Intake Gate
 

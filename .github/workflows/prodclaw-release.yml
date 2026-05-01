@@ -12,8 +12,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
-  attestations: write
 
 concurrency:
   group: prodclaw-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -23,11 +21,12 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NODE_VERSION: "24.x"
   PNPM_VERSION: "10.32.1"
+  PRODCLAW_UPSTREAM_REMOTE: "https://github.com/openclaw-org/openclaw"
 
 jobs:
   package:
     name: Package ProdClaw release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Resolve release tag
@@ -39,7 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="${INPUT_TAG:-$REF_NAME}"
-          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-rc\.([1-9][0-9]*))?$ ]]; then
+          if [[ ! "$tag" =~ ^v([1-9][0-9]*)\.([0-9]+)\.([0-9]+)(-rc\.([1-9][0-9]*))?$ ]]; then
             echo "Invalid ProdClaw tag: $tag" >&2
             exit 1
           fi
@@ -51,7 +50,7 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Checkout release tag
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           ref: ${{ steps.release_tag.outputs.tag }}
           fetch-depth: 0
@@ -109,21 +108,25 @@ jobs:
         run: |
           set -euo pipefail
           metadata="$RUNNER_TEMP/prodclaw-release/prodclaw-release-metadata.json"
-          node --input-type=module - "$metadata" "$TAG" <<'NODE'
+          node --input-type=module - "$metadata" "$TAG" "$PRODCLAW_UPSTREAM_REMOTE" <<'NODE'
           import { execFileSync } from "node:child_process";
-          import { writeFileSync } from "node:fs";
-          const [outPath, tag] = process.argv.slice(2);
+          import { readFileSync, writeFileSync } from "node:fs";
+          const [outPath, tag, expectedUpstreamRemote] = process.argv.slice(2);
           const pkg = JSON.parse(execFileSync("node", ["-p", "JSON.stringify(require('./package.json'))"], { encoding: "utf8" }));
+          const upstream = JSON.parse(readFileSync("PRODCLAW_UPSTREAM.json", "utf8"));
+          if (upstream.remote !== expectedUpstreamRemote) {
+            throw new Error(`PRODCLAW_UPSTREAM.json remote ${upstream.remote} does not match expected ${expectedUpstreamRemote}`);
+          }
+          if (typeof upstream.packageVersion !== "string" || upstream.packageVersion.length === 0) {
+            throw new Error("PRODCLAW_UPSTREAM.json must include upstream packageVersion");
+          }
           const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
           const metadata = {
             product: "ProdClaw",
             tag,
             version: pkg.version,
             sourceSha: git("rev-parse", "HEAD"),
-            upstream: {
-              remote: git("remote", "get-url", "upstream"),
-              openclawPackageVersion: pkg.version,
-            },
+            upstreamOpenClaw: upstream,
             releaseChannels: ["GA", "LTS"],
           };
           writeFileSync(outPath, `${JSON.stringify(metadata, null, 2)}\n`);
@@ -144,7 +147,7 @@ jobs:
           gh release upload "$TAG" "$ARTIFACT" "$CHECKSUM" "$METADATA" --clobber
 
       - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: prodclaw-release-${{ steps.release_tag.outputs.tag }}
           path: |
