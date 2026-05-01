@@ -9,6 +9,13 @@ on:
         description: ProdClaw tag to package, for example v1.2.3 or v1.2.3-rc.1
         required: true
         type: string
+      channel:
+        description: ProdClaw release channel for this tag
+        required: true
+        type: choice
+        options:
+          - ga
+          - lts
 
 permissions:
   contents: write
@@ -56,6 +63,76 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Resolve release channel
+        id: release_channel
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_CHANNEL: ${{ inputs.channel || '' }}
+          TARGET_COMMITISH: ${{ github.event.release.target_commitish || '' }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+
+          containing_branches="$(git branch -r --contains HEAD | sed 's/^[ *]*//' || true)"
+          has_ga=false
+          has_lts=false
+          if printf '%s\n' "$containing_branches" | grep -Eq '^(origin/main|origin/ga/)'; then
+            has_ga=true
+          fi
+          if printf '%s\n' "$containing_branches" | grep -Eq '^origin/lts/'; then
+            has_lts=true
+          fi
+
+          channel=""
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            case "$INPUT_CHANNEL" in
+              ga) channel="GA" ;;
+              lts) channel="LTS" ;;
+              *)
+                echo "Invalid ProdClaw release channel: $INPUT_CHANNEL" >&2
+                exit 1
+                ;;
+            esac
+          else
+            case "$TARGET_COMMITISH" in
+              main|ga/*) channel="GA" ;;
+              lts/*) channel="LTS" ;;
+              ""|v*)
+                ;;
+              *)
+                echo "Release target_commitish must be main, ga/*, lts/*, or a tag whose commit is reachable from one of those branches: $TARGET_COMMITISH" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          if [[ -z "$channel" ]]; then
+            if [[ "$has_ga" == true && "$has_lts" == false ]]; then
+              channel="GA"
+            elif [[ "$has_lts" == true && "$has_ga" == false ]]; then
+              channel="LTS"
+            else
+              echo "Unable to infer a single release channel for HEAD." >&2
+              echo "Containing branches:" >&2
+              printf '%s\n' "$containing_branches" >&2
+              exit 1
+            fi
+          fi
+
+          if [[ "$channel" == "GA" && "$has_ga" != true ]]; then
+            echo "GA releases must be cut from main or ga/*." >&2
+            printf '%s\n' "$containing_branches" >&2
+            exit 1
+          fi
+          if [[ "$channel" == "LTS" && "$has_lts" != true ]]; then
+            echo "LTS releases must be cut from lts/*." >&2
+            printf '%s\n' "$containing_branches" >&2
+            exit 1
+          fi
+
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node environment
         uses: ./.github/actions/setup-node-env
         with:
@@ -87,13 +164,28 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/prodclaw-release"
-          npm pack --json > "$RUNNER_TEMP/prodclaw-release/npm-pack.json"
-          tarball="$(node --input-type=module - "$RUNNER_TEMP/prodclaw-release/npm-pack.json" <<'NODE'
+          pnpm pack --json --pack-destination "$RUNNER_TEMP/prodclaw-release" > "$RUNNER_TEMP/prodclaw-release/pnpm-pack.json"
+          tarball="$(node --input-type=module - "$RUNNER_TEMP/prodclaw-release/pnpm-pack.json" <<'NODE'
           import { readFileSync } from "node:fs";
           const payload = JSON.parse(readFileSync(process.argv[2], "utf8"));
-          console.log(payload[0].filename);
+          const entry = Array.isArray(payload) ? payload[0] : payload;
+          const filename = entry?.filename ?? entry?.path ?? entry?.name;
+          if (typeof filename !== "string" || filename.length === 0) {
+            throw new Error("pnpm pack did not return a tarball filename");
+          }
+          console.log(filename);
           NODE
           )"
+          if [[ "$tarball" != /* ]]; then
+            tarball="$RUNNER_TEMP/prodclaw-release/$tarball"
+          fi
+          if [[ ! -f "$tarball" ]]; then
+            tarball="$(find "$RUNNER_TEMP/prodclaw-release" -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+          fi
+          if [[ -z "$tarball" || ! -f "$tarball" ]]; then
+            echo "pnpm pack did not produce a tarball in $RUNNER_TEMP/prodclaw-release" >&2
+            exit 1
+          fi
           artifact="prodclaw-${TAG#v}.tgz"
           mv "$tarball" "$RUNNER_TEMP/prodclaw-release/$artifact"
           (cd "$RUNNER_TEMP/prodclaw-release" && sha256sum "$artifact" > "$artifact.sha256")
@@ -105,13 +197,14 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.release_tag.outputs.tag }}
+          CHANNEL: ${{ steps.release_channel.outputs.channel }}
         run: |
           set -euo pipefail
           metadata="$RUNNER_TEMP/prodclaw-release/prodclaw-release-metadata.json"
-          node --input-type=module - "$metadata" "$TAG" "$PRODCLAW_UPSTREAM_REMOTE" <<'NODE'
+          node --input-type=module - "$metadata" "$TAG" "$CHANNEL" "$PRODCLAW_UPSTREAM_REMOTE" <<'NODE'
           import { execFileSync } from "node:child_process";
           import { readFileSync, writeFileSync } from "node:fs";
-          const [outPath, tag, expectedUpstreamRemote] = process.argv.slice(2);
+          const [outPath, tag, releaseChannel, expectedUpstreamRemote] = process.argv.slice(2);
           const pkg = JSON.parse(execFileSync("node", ["-p", "JSON.stringify(require('./package.json'))"], { encoding: "utf8" }));
           const upstream = JSON.parse(readFileSync("PRODCLAW_UPSTREAM.json", "utf8"));
           if (upstream.remote !== expectedUpstreamRemote) {
@@ -120,6 +213,9 @@ jobs:
           if (typeof upstream.packageVersion !== "string" || upstream.packageVersion.length === 0) {
             throw new Error("PRODCLAW_UPSTREAM.json must include upstream packageVersion");
           }
+          if (!["GA", "LTS"].includes(releaseChannel)) {
+            throw new Error(`invalid releaseChannel ${releaseChannel}`);
+          }
           const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
           const metadata = {
             product: "ProdClaw",
@@ -127,7 +223,7 @@ jobs:
             version: pkg.version,
             sourceSha: git("rev-parse", "HEAD"),
             upstreamOpenClaw: upstream,
-            releaseChannels: ["GA", "LTS"],
+            releaseChannel,
           };
           writeFileSync(outPath, `${JSON.stringify(metadata, null, 2)}\n`);
           NODE
@@ -144,7 +240,15 @@ jobs:
           METADATA: ${{ steps.metadata.outputs.metadata }}
         run: |
           set -euo pipefail
-          gh release upload "$TAG" "$ARTIFACT" "$CHECKSUM" "$METADATA" --clobber
+          release_assets="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          for path in "$ARTIFACT" "$CHECKSUM" "$METADATA"; do
+            asset="$(basename "$path")"
+            if printf '%s\n' "$release_assets" | grep -Fxq "$asset"; then
+              echo "Release asset already exists and will not be overwritten: $asset" >&2
+              exit 1
+            fi
+          done
+          gh release upload "$TAG" "$ARTIFACT" "$CHECKSUM" "$METADATA"
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -3,6 +3,7 @@ name: ProdClaw Governance
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,6 +12,7 @@ permissions:
 jobs:
   semantic-pr:
     name: Validate PR
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -66,10 +68,12 @@ jobs:
             test -f "$f"
           done
 
-          grep -q "GA" PRODCLAW.md
-          grep -q "LTS" PRODCLAW.md
-          grep -q "10 days" PRODCLAW.md
-          grep -q "SemVer" PRODCLAW.md
+          # These checks are lightweight tripwires for accidental boundary-doc deletion.
+          # CODEOWNERS review is still the authoritative governance control.
+          grep -q "\\*\\*GA\\*\\* is the current production-ready channel" PRODCLAW.md
+          grep -q "\\*\\*LTS\\*\\* is the conservative channel" PRODCLAW.md
+          grep -q "at least 10 days old" PRODCLAW.md
+          grep -q "ProdClaw uses SemVer tags" PRODCLAW.md
 
           private_pattern='MachineWisdomAI/''iris|iris''-[a-z0-9-]+|azureuser''@|/Users''/|/home/''younes|OPENROUTER_''API_KEY|TELEGRAM_''BOT_TOKEN'
           if grep -RInE "$private_pattern" "${files[@]}"; then
