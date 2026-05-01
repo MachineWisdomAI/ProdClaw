@@ -218,6 +218,10 @@ jobs:
           if (!["GA", "LTS"].includes(releaseChannel)) {
             throw new Error(`invalid releaseChannel ${releaseChannel}`);
           }
+          const upstreamAgeDays = Math.floor((Date.now() - Date.parse(upstream.releaseDate)) / 86_400_000);
+          if (releaseChannel === "GA" && upstreamAgeDays < 10) {
+            throw new Error(`upstream release is only ${upstreamAgeDays} days old; GA requires at least 10 days`);
+          }
           const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
           const metadata = {
             product: "ProdClaw",
@@ -250,6 +254,8 @@ jobs:
               exit 1
             fi
           done
+          # TODO: attach SLSA provenance or sigstore signing here once available.
+          # See docs/reference/prodclaw-release-policy.md "Release Gate" section.
           gh release upload "$TAG" "$ARTIFACT" "$CHECKSUM" "$METADATA"
 
       - name: Upload workflow artifacts

@@ -1,63 +1,62 @@
 # Protect the ownership rules themselves.
-/.github/CODEOWNERS @steipete
+/.github/CODEOWNERS @timeleft--
 
 # WARNING: GitHub CODEOWNERS uses last-match-wins semantics.
-# If you add overlapping rules below the secops block, include @openclaw/openclaw-secops
-# on those entries too or you can silently remove required secops review.
-# Security-sensitive code, config, and docs require secops review.
-/SECURITY.md @openclaw/openclaw-secops
-/.github/dependabot.yml @openclaw/openclaw-secops
-/.github/codeql/ @openclaw/openclaw-secops
-/.github/workflows/codeql.yml @openclaw/openclaw-secops
-/.github/workflows/codeql-android-critical-security.yml @openclaw/openclaw-secops
-/.github/workflows/codeql-critical-quality.yml @openclaw/openclaw-secops
-/src/security/ @openclaw/openclaw-secops
-/src/secrets/ @openclaw/openclaw-secops
-/src/config/*secret*.ts @openclaw/openclaw-secops
-/src/config/**/*secret*.ts @openclaw/openclaw-secops
-/src/gateway/*auth*.ts @openclaw/openclaw-secops
-/src/gateway/**/*auth*.ts @openclaw/openclaw-secops
-/src/gateway/*secret*.ts @openclaw/openclaw-secops
-/src/gateway/**/*secret*.ts @openclaw/openclaw-secops
-/src/gateway/security-path*.ts @openclaw/openclaw-secops
-/src/gateway/resolve-configured-secret-input-string*.ts @openclaw/openclaw-secops
-/src/gateway/protocol/**/*secret*.ts @openclaw/openclaw-secops
-/src/gateway/server-methods/secrets*.ts @openclaw/openclaw-secops
-/src/agents/*auth*.ts @openclaw/openclaw-secops
-/src/agents/**/*auth*.ts @openclaw/openclaw-secops
-/src/agents/auth-profiles*.ts @openclaw/openclaw-secops
-/src/agents/auth-health*.ts @openclaw/openclaw-secops
-/src/agents/auth-profiles/ @openclaw/openclaw-secops
-/src/agents/sandbox.ts @openclaw/openclaw-secops
-/src/agents/sandbox-*.ts @openclaw/openclaw-secops
-/src/agents/sandbox/ @openclaw/openclaw-secops
-/src/infra/secret-file*.ts @openclaw/openclaw-secops
-/src/cron/stagger.ts @openclaw/openclaw-secops
-/src/cron/service/jobs.ts @openclaw/openclaw-secops
-/docs/security/ @openclaw/openclaw-secops
-/docs/gateway/authentication.md @openclaw/openclaw-secops
-/docs/gateway/sandbox-vs-tool-policy-vs-elevated.md @openclaw/openclaw-secops
-/docs/gateway/sandboxing.md @openclaw/openclaw-secops
-/docs/gateway/secrets-plan-contract.md @openclaw/openclaw-secops
-/docs/gateway/secrets.md @openclaw/openclaw-secops
-/docs/gateway/security/ @openclaw/openclaw-secops
-/docs/cli/approvals.md @openclaw/openclaw-secops
-/docs/cli/sandbox.md @openclaw/openclaw-secops
-/docs/cli/security.md @openclaw/openclaw-secops
-/docs/cli/secrets.md @openclaw/openclaw-secops
-/docs/reference/secretref-credential-surface.md @openclaw/openclaw-secops
-/docs/reference/secretref-user-supplied-credentials-matrix.json @openclaw/openclaw-secops
+# This downstream repo can only name collaborators or teams with write access here.
+# Security-sensitive code, config, and docs require owner review.
+/SECURITY.md @timeleft--
+/.github/dependabot.yml @timeleft--
+/.github/codeql/ @timeleft--
+/.github/workflows/codeql.yml @timeleft--
+/.github/workflows/codeql-android-critical-security.yml @timeleft--
+/.github/workflows/codeql-critical-quality.yml @timeleft--
+/src/security/ @timeleft--
+/src/secrets/ @timeleft--
+/src/config/*secret*.ts @timeleft--
+/src/config/**/*secret*.ts @timeleft--
+/src/gateway/*auth*.ts @timeleft--
+/src/gateway/**/*auth*.ts @timeleft--
+/src/gateway/*secret*.ts @timeleft--
+/src/gateway/**/*secret*.ts @timeleft--
+/src/gateway/security-path*.ts @timeleft--
+/src/gateway/resolve-configured-secret-input-string*.ts @timeleft--
+/src/gateway/protocol/**/*secret*.ts @timeleft--
+/src/gateway/server-methods/secrets*.ts @timeleft--
+/src/agents/*auth*.ts @timeleft--
+/src/agents/**/*auth*.ts @timeleft--
+/src/agents/auth-profiles*.ts @timeleft--
+/src/agents/auth-health*.ts @timeleft--
+/src/agents/auth-profiles/ @timeleft--
+/src/agents/sandbox.ts @timeleft--
+/src/agents/sandbox-*.ts @timeleft--
+/src/agents/sandbox/ @timeleft--
+/src/infra/secret-file*.ts @timeleft--
+/src/cron/stagger.ts @timeleft--
+/src/cron/service/jobs.ts @timeleft--
+/docs/security/ @timeleft--
+/docs/gateway/authentication.md @timeleft--
+/docs/gateway/sandbox-vs-tool-policy-vs-elevated.md @timeleft--
+/docs/gateway/sandboxing.md @timeleft--
+/docs/gateway/secrets-plan-contract.md @timeleft--
+/docs/gateway/secrets.md @timeleft--
+/docs/gateway/security/ @timeleft--
+/docs/cli/approvals.md @timeleft--
+/docs/cli/sandbox.md @timeleft--
+/docs/cli/security.md @timeleft--
+/docs/cli/secrets.md @timeleft--
+/docs/reference/secretref-credential-surface.md @timeleft--
+/docs/reference/secretref-user-supplied-credentials-matrix.json @timeleft--
 
 # Release workflow and its supporting release-path checks.
-/.github/workflows/openclaw-npm-release.yml @openclaw/openclaw-release-managers
-/docs/reference/RELEASING.md @openclaw/openclaw-release-managers
-/scripts/openclaw-npm-publish.sh @openclaw/openclaw-release-managers
-/scripts/openclaw-npm-release-check.ts @openclaw/openclaw-release-managers
-/scripts/release-check.ts @openclaw/openclaw-release-managers
+/.github/workflows/openclaw-npm-release.yml @timeleft--
+/docs/reference/RELEASING.md @timeleft--
+/scripts/openclaw-npm-publish.sh @timeleft--
+/scripts/openclaw-npm-release-check.ts @timeleft--
+/scripts/release-check.ts @timeleft--
 
 # ProdClaw downstream governance and release surfaces.
-# Keep these rules last so broader upstream workflow rules cannot override @timeleft-- or @ogamel.
-/PRODCLAW.md @timeleft-- @ogamel
-/PRODCLAW_UPSTREAM.json @timeleft-- @ogamel
-/docs/reference/prodclaw-release-policy.md @timeleft-- @ogamel
-/.github/workflows/prodclaw-*.yml @timeleft-- @ogamel
+# Keep these rules last so broader upstream workflow rules cannot override @timeleft--.
+/PRODCLAW.md @timeleft--
+/PRODCLAW_UPSTREAM.json @timeleft--
+/docs/reference/prodclaw-release-policy.md @timeleft--
+/.github/workflows/prodclaw-*.yml @timeleft--
