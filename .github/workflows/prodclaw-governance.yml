@@ -81,6 +81,17 @@ jobs:
             exit 1
           fi
 
+      - name: Enforce upstream intake age gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_date=$(jq -r '.releaseDate' PRODCLAW_UPSTREAM.json)
+          age_days=$(( ( $(date +%s) - $(date -d "$release_date" +%s) ) / 86400 ))
+          if (( age_days < 10 )); then
+            echo "Upstream release is only $age_days days old; GA requires ≥10 days." >&2
+            exit 1
+          fi
+          
       - name: Validate ProdClaw tag policy
         shell: bash
         run: |
