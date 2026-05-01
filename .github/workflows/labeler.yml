@@ -27,6 +27,9 @@ permissions: {}
 
 jobs:
   label:
+    # ProdClaw does not carry OpenClaw maintainer app secrets. Keep this
+    # inherited triage automation upstream-only unless ProdClaw deliberately replaces it.
+    if: github.repository == 'openclaw/openclaw' || github.repository == 'openclaw-org/openclaw'
     permissions:
       contents: read
       pull-requests: write
@@ -441,7 +444,7 @@ jobs:
             }
 
   backfill-pr-labels:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && (github.repository == 'openclaw/openclaw' || github.repository == 'openclaw-org/openclaw')
     permissions:
       contents: read
       pull-requests: write
@@ -741,6 +744,7 @@ jobs:
             core.info(`Processed ${processed} pull requests.`);
 
   label-issues:
+    if: github.repository == 'openclaw/openclaw' || github.repository == 'openclaw-org/openclaw'
     permissions:
       issues: write
     runs-on: ubuntu-24.04
