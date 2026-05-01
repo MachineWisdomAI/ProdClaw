@@ -165,6 +165,8 @@ export const mockedEvaluateContextWindowGuard = vi.fn(() => ({
   shouldBlock: false,
   tokens: 200000,
   source: "model",
+  hardMinTokens: 1000,
+  warnBelowTokens: 5000,
 }));
 export const mockedResolveContextWindowInfo = vi.fn(() => ({
   tokens: 200000,
@@ -305,6 +307,8 @@ export function resetRunOverflowCompactionHarnessMocks(): void {
     shouldBlock: false,
     tokens: 200000,
     source: "model",
+    hardMinTokens: 1000,
+    warnBelowTokens: 5000,
   });
   mockedResolveContextWindowInfo.mockReset();
   mockedResolveContextWindowInfo.mockReturnValue({
