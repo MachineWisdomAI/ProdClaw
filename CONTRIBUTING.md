@@ -1,6 +1,27 @@
-# Contributing to OpenClaw
+# Contributing to ProdClaw
 
-Welcome to the lobster tank! 🦞
+ProdClaw is MachineWisdom's production-stability downstream of OpenClaw.
+Contributions should keep that boundary clear: generic runtime stability,
+release maturity, and safer defaults belong here; private deployment products,
+customer-specific policy, fleet topology, hostnames, tenant names, and private
+bridges do not.
+
+ProdClaw follows two release channels:
+
+- **GA**: production-ready releases cut at most every two weeks from upstream
+  OpenClaw releases that are at least 10 days old.
+- **LTS**: quarterly conservative releases promoted from proven GA releases,
+  with security and critical regression backports only.
+
+ProdClaw uses SemVer tags (`vMAJOR.MINOR.PATCH` and
+`vMAJOR.MINOR.PATCH-rc.N`). Do not use upstream OpenClaw date-version tags for
+ProdClaw releases.
+
+The upstream OpenClaw contribution notes below are retained for codebase
+orientation, but ProdClaw PRs are reviewed against the downstream release and
+stability policy in [`PRODCLAW.md`](PRODCLAW.md).
+
+## Upstream OpenClaw Notes
 
 ## Quick Links
 

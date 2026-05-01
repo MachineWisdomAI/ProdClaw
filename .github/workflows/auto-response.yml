@@ -19,6 +19,9 @@ permissions: {}
 
 jobs:
   auto-response:
+    # ProdClaw does not carry OpenClaw maintainer app secrets. Keep this
+    # inherited automation upstream-only unless ProdClaw deliberately replaces it.
+    if: github.repository == 'openclaw/openclaw' || github.repository == 'openclaw-org/openclaw'
     permissions:
       issues: write
       pull-requests: write
