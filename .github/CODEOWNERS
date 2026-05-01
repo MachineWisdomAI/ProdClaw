@@ -55,8 +55,8 @@
 /scripts/release-check.ts @timeleft--
 
 # ProdClaw downstream governance and release surfaces.
-# Keep these rules last so broader upstream workflow rules cannot override @timeleft--.
-/PRODCLAW.md @timeleft--
-/PRODCLAW_UPSTREAM.json @timeleft--
-/docs/reference/prodclaw-release-policy.md @timeleft--
-/.github/workflows/prodclaw-*.yml @timeleft--
+# Keep these rules last so broader upstream workflow rules cannot override @timeleft-- or @ogamel.
+/PRODCLAW.md @timeleft-- @ogamel
+/PRODCLAW_UPSTREAM.json @timeleft-- @ogamel
+/docs/reference/prodclaw-release-policy.md @timeleft-- @ogamel
+/.github/workflows/prodclaw-*.yml @timeleft-- @ogamel
