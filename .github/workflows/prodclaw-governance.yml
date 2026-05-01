@@ -1,0 +1,107 @@
+name: ProdClaw Governance
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  semantic-pr:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check PR title
+        id: lint-pr-title
+        uses: amannn/action-semantic-pull-request@0723387faaf9b38adef4775cd42cfd5155ed6017
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add PR title error comment
+        uses: marocchino/sticky-pull-request-comment@d2ad0de260ae8b0235ce059e63f2949ba9e05943
+        if: always() && (steps.lint-pr-title.outputs.error_message != null)
+        with:
+          header: prodclaw-pr-title-lint-error
+          message: |
+            ProdClaw PR titles must follow Conventional Commits.
+
+            ```
+            ${{ steps.lint-pr-title.outputs.error_message }}
+            ```
+
+      - name: Delete PR title error comment
+        uses: marocchino/sticky-pull-request-comment@d2ad0de260ae8b0235ce059e63f2949ba9e05943
+        if: ${{ steps.lint-pr-title.outputs.error_message == null }}
+        with:
+          header: prodclaw-pr-title-lint-error
+          delete: true
+
+  prodclaw-governance:
+    name: ProdClaw Governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate ProdClaw boundary docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            PRODCLAW.md
+            docs/reference/prodclaw-release-policy.md
+            AGENTS.md
+            CONTRIBUTING.md
+            .github/workflows/prodclaw-governance.yml
+            .github/workflows/prodclaw-release.yml
+          )
+
+          for f in "${files[@]}"; do
+            test -f "$f"
+          done
+
+          grep -q "GA" PRODCLAW.md
+          grep -q "LTS" PRODCLAW.md
+          grep -q "10 days" PRODCLAW.md
+          grep -q "SemVer" PRODCLAW.md
+
+          private_pattern='MachineWisdomAI/''iris|iris''-[a-z0-9-]+|azureuser''@|/Users''/|/home/''younes|OPENROUTER_''API_KEY|TELEGRAM_''BOT_TOKEN'
+          if grep -RInE "$private_pattern" "${files[@]}"; then
+            echo "ProdClaw governance files must not contain private deployment details." >&2
+            exit 1
+          fi
+
+      - name: Validate ProdClaw tag policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const accepted = [
+            "v1.0.0",
+            "v1.2.3",
+            "v2.0.0-rc.1",
+            "v12.34.56-rc.10",
+          ];
+          const rejected = [
+            "v2026.4.27",
+            "2026.4.27",
+            "v1.0",
+            "v1.0.0-beta.1",
+          ];
+          const pattern = /^v(?!\d{4}\.)\d+\.\d+\.\d+(?:-rc\.[1-9]\d*)?$/;
+          for (const tag of accepted) {
+            if (!pattern.test(tag)) {
+              throw new Error(`expected accepted ProdClaw tag: ${tag}`);
+            }
+          }
+          for (const tag of rejected) {
+            if (pattern.test(tag)) {
+              throw new Error(`expected rejected ProdClaw tag: ${tag}`);
+            }
+          }
+          NODE

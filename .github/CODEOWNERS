@@ -1,6 +1,11 @@
 # Protect the ownership rules themselves.
 /.github/CODEOWNERS @steipete
 
+# ProdClaw downstream governance and release surfaces.
+/PRODCLAW.md @timeleft--
+/docs/reference/prodclaw-release-policy.md @timeleft--
+/.github/workflows/prodclaw-*.yml @timeleft--
+
 # WARNING: GitHub CODEOWNERS uses last-match-wins semantics.
 # If you add overlapping rules below the secops block, include @openclaw/openclaw-secops
 # on those entries too or you can silently remove required secops review.

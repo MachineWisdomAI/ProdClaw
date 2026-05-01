@@ -1,3 +1,19 @@
+# ProdClaw — Production-Stability Downstream of OpenClaw
+
+ProdClaw is MachineWisdom's production-stability downstream of OpenClaw. It
+keeps the OpenClaw runtime model while adding slower upstream intake, safer
+release maturity, and GA/LTS release channels for production operators.
+
+This repository should stay generic. Private deployment products, customer
+policy, fleet topology, hostnames, tenant names, and private bridge details
+belong outside ProdClaw.
+
+See [`PRODCLAW.md`](PRODCLAW.md) and
+[`docs/reference/prodclaw-release-policy.md`](docs/reference/prodclaw-release-policy.md)
+for the downstream boundary and release policy.
+
+---
+
 # 🦞 OpenClaw — Personal AI Assistant
 
 <p align="center">

@@ -4,7 +4,14 @@ Telegraph style. Root rules only. Read scoped `AGENTS.md` before subtree work.
 
 ## Start
 
-- Repo: `https://github.com/openclaw/openclaw`
+- Repo: `https://github.com/MachineWisdomAI/ProdClaw`
+- Downstream: ProdClaw is a production-stability downstream of OpenClaw.
+  Keep changes generic to the runtime; no private deployment product,
+  customer, host, tenant, OAuth bridge, or fleet-operation details belong here.
+- Upstream: `https://github.com/openclaw-org/openclaw`. Intake upstream only
+  through explicit review PRs; do not auto-merge upstream.
+- Releases: ProdClaw uses GA and LTS maturity channels with SemVer tags. Do not
+  ship OpenClaw date-versioned tags as ProdClaw releases.
 - Replies: repo-root refs only: `extensions/telegram/src/index.ts:80`. No absolute paths, no `~/`.
 - Run docs list first: `pnpm docs:list` if available; read relevant docs only.
 - High-confidence answers only when fixing/triaging: verify source, tests, shipped/current behavior, and dependency contracts before deciding.

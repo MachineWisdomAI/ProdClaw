@@ -1,0 +1,153 @@
+name: ProdClaw Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: ProdClaw tag to package, for example v1.2.3 or v1.2.3-rc.1
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: prodclaw-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  NODE_VERSION: "24.x"
+  PNPM_VERSION: "10.32.1"
+
+jobs:
+  package:
+    name: Package ProdClaw release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Resolve release tag
+        id: release_tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag || '' }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-$REF_NAME}"
+          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-rc\.([1-9][0-9]*))?$ ]]; then
+            echo "Invalid ProdClaw tag: $tag" >&2
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}"
+          if (( major >= 1000 )); then
+            echo "ProdClaw versions must not reuse upstream date-version tags: $tag" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.release_tag.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node environment
+        uses: ./.github/actions/setup-node-env
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install-bun: "true"
+
+      - name: Verify package version matches tag
+        shell: bash
+        env:
+          TAG: ${{ steps.release_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          expected="${TAG#v}"
+          actual="$(node -p "require('./package.json').version")"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "package.json version $actual does not match ProdClaw tag $TAG" >&2
+            exit 1
+          fi
+
+      - name: Build package
+        run: pnpm build:strict-smoke
+
+      - name: Pack release artifact
+        id: pack
+        shell: bash
+        env:
+          TAG: ${{ steps.release_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/prodclaw-release"
+          npm pack --json > "$RUNNER_TEMP/prodclaw-release/npm-pack.json"
+          tarball="$(node --input-type=module - "$RUNNER_TEMP/prodclaw-release/npm-pack.json" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const payload = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          console.log(payload[0].filename);
+          NODE
+          )"
+          artifact="prodclaw-${TAG#v}.tgz"
+          mv "$tarball" "$RUNNER_TEMP/prodclaw-release/$artifact"
+          (cd "$RUNNER_TEMP/prodclaw-release" && sha256sum "$artifact" > "$artifact.sha256")
+          echo "artifact=$RUNNER_TEMP/prodclaw-release/$artifact" >> "$GITHUB_OUTPUT"
+          echo "checksum=$RUNNER_TEMP/prodclaw-release/$artifact.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Write release metadata
+        id: metadata
+        shell: bash
+        env:
+          TAG: ${{ steps.release_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          metadata="$RUNNER_TEMP/prodclaw-release/prodclaw-release-metadata.json"
+          node --input-type=module - "$metadata" "$TAG" <<'NODE'
+          import { execFileSync } from "node:child_process";
+          import { writeFileSync } from "node:fs";
+          const [outPath, tag] = process.argv.slice(2);
+          const pkg = JSON.parse(execFileSync("node", ["-p", "JSON.stringify(require('./package.json'))"], { encoding: "utf8" }));
+          const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+          const metadata = {
+            product: "ProdClaw",
+            tag,
+            version: pkg.version,
+            sourceSha: git("rev-parse", "HEAD"),
+            upstream: {
+              remote: git("remote", "get-url", "upstream"),
+              openclawPackageVersion: pkg.version,
+            },
+            releaseChannels: ["GA", "LTS"],
+          };
+          writeFileSync(outPath, `${JSON.stringify(metadata, null, 2)}\n`);
+          NODE
+          echo "metadata=$metadata" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release assets
+        if: ${{ github.event_name == 'release' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release_tag.outputs.tag }}
+          ARTIFACT: ${{ steps.pack.outputs.artifact }}
+          CHECKSUM: ${{ steps.pack.outputs.checksum }}
+          METADATA: ${{ steps.metadata.outputs.metadata }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "$ARTIFACT" "$CHECKSUM" "$METADATA" --clobber
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prodclaw-release-${{ steps.release_tag.outputs.tag }}
+          path: |
+            ${{ steps.pack.outputs.artifact }}
+            ${{ steps.pack.outputs.checksum }}
+            ${{ steps.metadata.outputs.metadata }}
