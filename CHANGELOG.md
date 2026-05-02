@@ -4,11 +4,12 @@ Docs: https://docs.openclaw.ai
 
 ## ProdClaw 1.0.1-rc.1
 
-21 cherry-picked fixes from upstream OpenClaw onto the v2026.4.20 baseline.
+24 cherry-picked fixes from upstream OpenClaw onto the v2026.4.20 baseline.
 Each fix targets code present at the baseline and is self-contained (no
 dependency on newer feature-train code). Upstream PR/issue numbers are noted
 where available; commit references are upstream OpenClaw SHAs preserved in
-this fork.
+this fork. The MK-51 / MK-52 fixes resolve the production incidents
+documented in the linked Iris tickets.
 
 ### Security
 
@@ -30,6 +31,10 @@ this fork.
 
 ### Correctness — Gateway / Sessions
 
+- **Outbound: hold active-delivery claim so reconnect drain skips live sends**
+  (commit `c94a8702c7`). Part of the MK-51 fix train. Prevents reconnect
+  drain from re-driving an entry that the live send is still writing to
+  the adapter.
 - Gateway: preserve RPC abort terminal snapshots so wait-for-completion
   clients receive the final state on aborted runs (commit `0459206c40`).
 - Agents: preserve string user content when merging turns; normalize
@@ -40,6 +45,17 @@ this fork.
 
 ### Correctness — Cron / Commands / Config
 
+- **Cron: preserve current delivery target context** (commit `e309fd485e`).
+  Resolves the WOD/Fajr scheduler incident (Iris MK-52). Cron announce jobs
+  created from a Telegram (or other channel) context now persist the
+  current delivery target metadata so unattended runs deliver to the
+  originating chat instead of failing with
+  "Delivering to <channel> requires target <chatId>".
+- **Cron: isolate cron context-engine session keys** (upstream #72292,
+  commit `a3c51f91c5`). Resolves the stale-WOD-context incident
+  (Iris MK-51). Threads `runSessionKey` through the isolated-agent
+  execution context so cron-emitted system events no longer accumulate
+  against the main session and bleed into the next user message.
 - Cron: preserve model overrides for text-mode cron payloads (upstream
   #73946).
 - Cron: reject invalid cron edits on disabled jobs to prevent silent state
