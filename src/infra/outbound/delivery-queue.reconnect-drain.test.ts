@@ -11,7 +11,10 @@ import {
   MAX_RETRIES,
   type RecoveryLogger,
   recoverPendingDeliveries,
+  releaseActiveDelivery,
+  tryClaimActiveDelivery,
 } from "./delivery-queue.js";
+import { createRecoveryLog } from "./delivery-queue.test-helpers.js";
 
 function createMockLogger(): RecoveryLogger {
   return {
@@ -46,6 +49,26 @@ async function drainWhatsAppReconnectPending(opts: {
       match:
         entry.channel === "whatsapp" &&
         normalizeReconnectAccountIdForTest(entry.accountId) === normalizedAccountId,
+      bypassBackoff:
+        typeof entry.lastError === "string" && entry.lastError.includes(NO_LISTENER_ERROR),
+    }),
+  });
+}
+
+async function drainAcct1DirectChatReconnect(params: {
+  deliver: DeliverFn;
+  log: RecoveryLogger;
+  stateDir: string;
+}) {
+  await drainPendingDeliveries({
+    drainKey: "directchat:acct1",
+    logLabel: "directchat reconnect drain",
+    cfg: stubCfg,
+    log: params.log,
+    stateDir: params.stateDir,
+    deliver: params.deliver,
+    selectEntry: (entry) => ({
+      match: entry.channel === "directchat" && entry.accountId === "acct1",
       bypassBackoff:
         typeof entry.lastError === "string" && entry.lastError.includes(NO_LISTENER_ERROR),
     }),
@@ -478,5 +501,36 @@ describe("drainPendingDeliveries for WhatsApp reconnect", () => {
     });
 
     expect(deliver).not.toHaveBeenCalled();
+  });
+
+  it("skips entries that an in-flight live delivery has actively claimed", async () => {
+    // Regression for openclaw/openclaw#70386: a reconnect drain that runs
+    // while the live send is still writing to the adapter must not re-drive
+    // the same entry. The live delivery path holds an in-memory active claim
+    // for `queueId` across its send; drain honors that claim via the same
+    // `entriesInProgress` set used for startup recovery.
+    const log = createRecoveryLog();
+    const deliver = vi.fn<DeliverFn>(async () => {});
+
+    const id = await enqueueDelivery(
+      { channel: "directchat", to: "+1555", payloads: [{ text: "hi" }], accountId: "acct1" },
+      tmpDir,
+    );
+
+    expect(tryClaimActiveDelivery(id)).toBe(true);
+    try {
+      await drainAcct1DirectChatReconnect({ deliver, log, stateDir: tmpDir });
+      expect(deliver).not.toHaveBeenCalled();
+      expect(log.info).toHaveBeenCalledWith(
+        expect.stringContaining(`entry ${id} is already being recovered`),
+      );
+    } finally {
+      releaseActiveDelivery(id);
+    }
+
+    // Once the live delivery path releases its claim (success or failure), a
+    // later reconnect drain is free to pick the entry up again.
+    await drainAcct1DirectChatReconnect({ deliver, log, stateDir: tmpDir });
+    expect(deliver).toHaveBeenCalledTimes(1);
   });
 });
