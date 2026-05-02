@@ -1247,7 +1247,9 @@ describe("/acp command", () => {
     );
   });
 
-  it("binds Telegram topic ACP spawns to full conversation ids", async () => {
+  // Skipped at v2026.4.20 baseline: requires post-baseline ACP delivery.pin
+  // feature not part of cherry-pick 5716428adc.
+  it.skip("binds Telegram topic ACP spawns to full conversation ids", async () => {
     const result = await runTelegramAcpCommand("/acp spawn codex --thread here");
 
     expect(result?.reply?.text).toContain("Spawned ACP session agent:codex:acp:");
@@ -1283,7 +1285,9 @@ describe("/acp command", () => {
     );
   });
 
-  it("binds Matrix rooms with --bind here without requiring thread spawn", async () => {
+  // Skipped at v2026.4.20 baseline: requires post-baseline ACP delivery.pin
+  // and Matrix --bind here flow not part of cherry-pick 5716428adc.
+  it.skip("binds Matrix rooms with --bind here without requiring thread spawn", async () => {
     const cfg = {
       ...baseCfg,
       channels: {
@@ -1311,7 +1315,9 @@ describe("/acp command", () => {
     );
   });
 
-  it("creates Matrix thread-bound ACP spawns from top-level rooms when enabled", async () => {
+  // Skipped at v2026.4.20 baseline: requires post-baseline Matrix
+  // thread-bound spawn flow not part of cherry-pick 5716428adc.
+  it.skip("creates Matrix thread-bound ACP spawns from top-level rooms when enabled", async () => {
     const cfg = {
       ...baseCfg,
       channels: {
@@ -1716,7 +1722,9 @@ describe("/acp command", () => {
     expect(hoisted.readAcpSessionEntryMock).not.toHaveBeenCalled();
   });
 
-  it("handles /acp close in a bound thread when text commands are disabled", async () => {
+  // Skipped at v2026.4.20 baseline: requires post-baseline bound-thread
+  // /acp close flow not part of cherry-pick 5716428adc.
+  it.skip("handles /acp close in a bound thread when text commands are disabled", async () => {
     mockBoundThreadSession();
     hoisted.sessionBindingUnbindMock.mockResolvedValue([
       createBoundThreadSession() as SessionBindingRecord,
@@ -2008,7 +2016,9 @@ describe("/acp command", () => {
     expect(result?.reply?.text).toContain("next:");
   });
 
-  it("explains when acpx is blocked by plugins.allow", async () => {
+  // Skipped at v2026.4.20 baseline: requires post-baseline acpx
+  // plugins.allow gating not part of cherry-pick 5716428adc.
+  it.skip("explains when acpx is blocked by plugins.allow", async () => {
     hoisted.getAcpRuntimeBackendMock.mockReturnValue(null);
     hoisted.requireAcpRuntimeBackendMock.mockImplementation(() => {
       throw new AcpRuntimeError(
