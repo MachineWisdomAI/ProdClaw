@@ -289,13 +289,11 @@ function dispatchAgentRunFromGateway(params: {
   void agentCommandFromIngress(params.ingressOpts, defaultRuntime, params.context.deps)
     .then((result) => {
       const aborted = result?.meta?.aborted === true;
-      if (shouldTrackTask) {
-        tryFinalizeTrackedAgentTask({
-          runId: params.runId,
-          status: aborted ? "timed_out" : "succeeded",
-          terminalSummary: aborted ? "aborted" : "completed",
-        });
-      }
+      // Note: upstream wraps tryFinalizeTrackedAgentTask({ status: ... }) here.
+      // That wrapper does not exist at the v2026.4.20 baseline; the cherry-pick
+      // 0459206c40 brought the call without the wrapper definition. Removed
+      // the dead block — the terminal-snapshot benefit (the `aborted` extraction
+      // and stopReason payload below) is preserved.
       const payload = {
         runId: params.runId,
         status: aborted ? ("timeout" as const) : ("ok" as const),
@@ -318,15 +316,10 @@ function dispatchAgentRunFromGateway(params: {
     })
     .catch((err) => {
       const aborted = isAbortError(err);
-      if (shouldTrackTask) {
-        const error = String(err);
-        tryFinalizeTrackedAgentTask({
-          runId: params.runId,
-          status: resolveFailedTrackedAgentTaskStatus(err),
-          error,
-          terminalSummary: error,
-        });
-      }
+      // Note: upstream wraps tryFinalizeTrackedAgentTask({...}) here using the
+      // resolveFailedTrackedAgentTaskStatus helper. Neither exists at the
+      // v2026.4.20 baseline; removed the dead block per the same reasoning
+      // as the .then() handler above.
       const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
       const payload = {
         runId: params.runId,
