@@ -331,7 +331,11 @@ describe("mattermost inbound user posts", () => {
     });
   });
 
-  it("does not enqueue regular user posts as system events", async () => {
+  // Skipped at the v2026.4.20 baseline: the test exercises a post-baseline
+  // routing decision in monitor.ts that's not part of cherry-pick 0e97f962ac
+  // (the WebSocket keepalive fix). The keepalive coverage lives in
+  // monitor-websocket.test.ts. See ProdClaw v1.0.1-rc.1 PR #4 review notes.
+  it.skip("does not enqueue regular user posts as system events", async () => {
     const socket = new FakeWebSocket();
     const abortController = new AbortController();
     mockState.abortController = abortController;
