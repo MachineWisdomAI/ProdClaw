@@ -12,6 +12,11 @@ vi.mock("../../config/config.js", async () => {
   return {
     ...actual,
     getRuntimeConfig,
+    // ProdClaw v2026.4.20 baseline: cron.ts validation reads via loadConfig().
+    // Upstream later refactored to getRuntimeConfig (commit 7f3f108521, a broad
+    // refactor not appropriate to backport). Mock both so the test reads the
+    // same fixture regardless of which call path the handler uses.
+    loadConfig: () => getRuntimeConfig(),
   };
 });
 
