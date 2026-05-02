@@ -4,7 +4,7 @@ Docs: https://docs.openclaw.ai
 
 ## ProdClaw 1.0.1-rc.1
 
-20 cherry-picked fixes from upstream OpenClaw onto the v2026.4.20 baseline.
+21 cherry-picked fixes from upstream OpenClaw onto the v2026.4.20 baseline.
 Each fix targets code present at the baseline and is self-contained (no
 dependency on newer feature-train code). Upstream PR/issue numbers are noted
 where available; commit references are upstream OpenClaw SHAs preserved in
@@ -47,6 +47,9 @@ this fork.
 - Cron: catch croner parse errors in `cron.add` and `cron.update` handlers
   so bad expressions return a structured error instead of crashing the
   gateway (upstream #74193).
+- Cron: accept `delivery.threadId` (string or number) in the gateway schema
+  for threaded announce delivery, e.g. Telegram forum topics (commit
+  `b6be422306`).
 - Config: accept the previously documented WhatsApp `exposeErrorText` key
   to prevent validation failures on existing configs (upstream #74667).
 

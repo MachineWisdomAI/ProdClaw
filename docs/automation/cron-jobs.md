@@ -129,7 +129,7 @@ retries, cron aborts instead of looping forever.
 | `webhook`  | POST finished event payload to a URL                     |
 | `none`     | Internal only, no delivery                               |
 
-Use `--announce --channel telegram --to "-1001234567890"` for channel delivery. For Telegram forum topics, use `-1001234567890:topic:123`. Slack/Discord/Mattermost targets should use explicit prefixes (`channel:<id>`, `user:<id>`).
+Use `--announce --channel telegram --to "-1001234567890"` for channel delivery. For Telegram forum topics, use `-1001234567890:topic:123`; direct RPC/config callers may also pass `delivery.threadId` as a string or number. Slack/Discord/Mattermost targets should use explicit prefixes (`channel:<id>`, `user:<id>`).
 
 For cron-owned isolated jobs, the runner owns the final delivery path. The
 agent is prompted to return a plain-text summary, and that summary is then sent
