@@ -328,7 +328,6 @@ async function prepareCronRunContext(params: {
     isFastTestEnv: params.isFastTestEnv,
     cronSession,
     agentSessionKey,
-    runSessionKey,
     updateSessionStore: async (storePath, update) => {
       const { updateSessionStore } = await loadSessionStoreRuntime();
       await updateSessionStore(storePath, update);
@@ -667,6 +666,8 @@ async function finalizeCronRun(params: {
     job: prepared.input.job,
     agentId: prepared.agentId,
     agentSessionKey: prepared.agentSessionKey,
+    runSessionKey: prepared.runSessionKey,
+    sessionId: prepared.runSessionId,
     runStartedAt: execution.runStartedAt,
     runEndedAt: execution.runEndedAt,
     timeoutMs: prepared.timeoutMs,
@@ -743,6 +744,7 @@ export async function runCronIsolatedAgentTurn(params: {
       agentId: prepared.context.agentId,
       agentDir: prepared.context.agentDir,
       agentSessionKey: prepared.context.agentSessionKey,
+      runSessionKey: prepared.context.runSessionKey,
       workspaceDir: prepared.context.workspaceDir,
       lane: params.lane,
       resolvedDelivery: {

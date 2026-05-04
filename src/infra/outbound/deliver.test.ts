@@ -40,6 +40,8 @@ const queueMocks = vi.hoisted(() => ({
   enqueueDelivery: vi.fn(async () => "mock-queue-id"),
   ackDelivery: vi.fn(async () => {}),
   failDelivery: vi.fn(async () => {}),
+  tryClaimActiveDelivery: vi.fn<(entryId: string) => boolean>(() => true),
+  releaseActiveDelivery: vi.fn<(entryId: string) => void>(() => {}),
 }));
 const logMocks = vi.hoisted(() => ({
   warn: vi.fn(),
@@ -74,6 +76,8 @@ vi.mock("./delivery-queue.js", () => ({
   enqueueDelivery: queueMocks.enqueueDelivery,
   ackDelivery: queueMocks.ackDelivery,
   failDelivery: queueMocks.failDelivery,
+  tryClaimActiveDelivery: queueMocks.tryClaimActiveDelivery,
+  releaseActiveDelivery: queueMocks.releaseActiveDelivery,
 }));
 vi.mock("../../logging/subsystem.js", () => ({
   createSubsystemLogger: () => {

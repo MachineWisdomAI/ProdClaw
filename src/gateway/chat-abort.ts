@@ -1,4 +1,5 @@
 import { isAbortRequestText } from "../auto-reply/reply/abort-primitives.js";
+import { emitAgentEvent } from "../infra/agent-events.js";
 
 export type ChatAbortControllerEntry = {
   controller: AbortController;
@@ -100,6 +101,19 @@ export function abortChatRunById(
   ops.chatDeltaLastBroadcastLen.delete(runId);
   const removed = ops.removeChatRun(runId, runId, sessionKey);
   broadcastChatAborted(ops, { runId, sessionKey, stopReason, partialText });
+  emitAgentEvent({
+    runId,
+    sessionKey,
+    stream: "lifecycle",
+    data: {
+      phase: "end",
+      status: "cancelled",
+      aborted: true,
+      stopReason,
+      startedAt: active.startedAtMs,
+      endedAt: Date.now(),
+    },
+  });
   ops.agentRunSeq.delete(runId);
   if (removed?.clientRunId) {
     ops.agentRunSeq.delete(removed.clientRunId);

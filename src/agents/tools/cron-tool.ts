@@ -10,6 +10,10 @@ import {
   normalizeOptionalLowercaseString,
 } from "../../shared/string-coerce.js";
 import { isRecord, truncateUtf16Safe } from "../../utils.js";
+import {
+  normalizeDeliveryContext,
+  type DeliveryContext,
+} from "../../utils/delivery-context.shared.js";
 import { resolveSessionAgentId } from "../agent-scope.js";
 import { optionalStringEnum, stringEnum } from "../schema/typebox.js";
 import { CRON_TOOL_DISPLAY_SUMMARY } from "../tool-description-presets.js";
@@ -143,6 +147,11 @@ const CronDeliverySchema = Type.Optional(
       mode: optionalStringEnum(CRON_DELIVERY_MODES, { description: "Delivery mode" }),
       channel: Type.Optional(Type.String({ description: "Delivery channel" })),
       to: Type.Optional(Type.String({ description: "Delivery target" })),
+      threadId: Type.Optional(
+        Type.Union([Type.String(), Type.Number()], {
+          description: "Thread/topic id for channels that support threaded delivery",
+        }),
+      ),
       bestEffort: Type.Optional(Type.Boolean()),
       accountId: Type.Optional(Type.String({ description: "Account target for delivery" })),
       failureDestination: Type.Optional(
@@ -255,6 +264,7 @@ export const CronToolSchema = Type.Object(
 
 type CronToolOptions = {
   agentSessionKey?: string;
+  currentDeliveryContext?: DeliveryContext;
 };
 
 type GatewayToolCaller = typeof callGatewayTool;
@@ -411,6 +421,27 @@ function inferDeliveryFromSessionKey(agentSessionKey?: string): CronDelivery | n
   return delivery;
 }
 
+function inferDeliveryFromContext(context?: DeliveryContext): CronDelivery | null {
+  const normalized = normalizeDeliveryContext(context);
+  if (!normalized?.to) {
+    return null;
+  }
+  const delivery: CronDelivery = {
+    mode: "announce",
+    to: normalized.to,
+  };
+  if (normalized.channel) {
+    delivery.channel = normalized.channel as CronMessageChannel;
+  }
+  if (normalized.accountId) {
+    delivery.accountId = normalized.accountId;
+  }
+  if (normalized.threadId != null) {
+    delivery.threadId = normalized.threadId;
+  }
+  return delivery;
+}
+
 export function createCronTool(opts?: CronToolOptions, deps?: CronToolDeps): AnyAgentTool {
   const callGateway = deps?.callGatewayTool ?? callGatewayTool;
   return {
@@ -470,9 +501,10 @@ PAYLOAD TYPES (payload.kind):
   { "kind": "agentTurn", "message": "<prompt>", "model": "<optional>", "thinking": "<optional>", "timeoutSeconds": <optional, 0 means no timeout> }
 
 DELIVERY (top-level):
-  { "mode": "none|announce|webhook", "channel": "<optional>", "to": "<optional>", "bestEffort": <optional-bool> }
+  { "mode": "none|announce|webhook", "channel": "<optional>", "to": "<optional>", "threadId": "<optional>", "bestEffort": <optional-bool> }
   - Default for isolated agentTurn jobs (when delivery omitted): "announce"
   - announce: send to chat channel (optional channel/to target)
+  - threadId: chat thread/topic id for channels that support threaded delivery
   - webhook: send finished-run event as HTTP POST to delivery.to (URL required)
   - If the task needs to send to a specific chat/recipient, set announce delivery.channel/to; do not call messaging tools inside the run.
 
@@ -551,7 +583,7 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
           }
 
           if (
-            opts?.agentSessionKey &&
+            (opts?.agentSessionKey || opts?.currentDeliveryContext) &&
             job &&
             typeof job === "object" &&
             "payload" in job &&
@@ -581,7 +613,9 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
               (mode === "" || mode === "announce") &&
               !hasTarget;
             if (shouldInfer) {
-              const inferred = inferDeliveryFromSessionKey(opts.agentSessionKey);
+              const inferred =
+                inferDeliveryFromContext(opts.currentDeliveryContext) ??
+                inferDeliveryFromSessionKey(opts.agentSessionKey);
               if (inferred) {
                 (job as { delivery?: unknown }).delivery = {
                   ...delivery,

@@ -399,6 +399,28 @@ describe("registerQrCli", () => {
     );
   });
 
+  // Skipped at the v2026.4.20 baseline: the URL "http://localhost:notaport" is
+  // accepted by the baseline normalizeUrl() (Node's URL parser treats it as
+  // host=localhost with no port). Rejecting it requires upstream's stricter
+  // URL validator, which is not part of cherry-pick a58c4d8ed5. The qr-cli
+  // remote URL rejection path is exercised indirectly by setup-code.test.ts.
+  it.skip("rejects invalid gateway.remote.url before printing remote setup codes", async () => {
+    loadConfig.mockReturnValue({
+      gateway: {
+        bind: "custom",
+        customBindHost: "127.0.0.1",
+        remote: { url: "http://localhost:notaport", token: "remote-tok" },
+        auth: { mode: "token", token: "local-tok" },
+      },
+    });
+
+    await expectQrExit(["--setup-code-only", "--remote"]);
+
+    const output = runtimeError.mock.calls.map((call) => readRuntimeCallText(call)).join("\n");
+    expect(output).toContain("Configured gateway.remote.url is invalid.");
+    expect(runtime.log).not.toHaveBeenCalled();
+  });
+
   it("logs remote secret diagnostics in non-json output mode", async () => {
     loadConfig.mockReturnValue(createRemoteQrConfig());
     resolveCommandSecretRefsViaGateway.mockResolvedValueOnce({

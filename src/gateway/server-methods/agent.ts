@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { listAgentIds, resolveAgentWorkspaceDir } from "../../agents/agent-scope.js";
 import type { AgentInternalEvent } from "../../agents/internal-events.js";
+import { resolveSandboxConfigForAgent } from "../../agents/sandbox/config.js";
 import {
   normalizeSpawnedRunMetadata,
   resolveIngressWorkspaceOverrideForSpawnedRun,
@@ -31,6 +32,7 @@ import {
 } from "../../infra/outbound/agent-delivery.js";
 import { shouldDowngradeDeliveryToSessionOnly } from "../../infra/outbound/best-effort-delivery.js";
 import { resolveMessageChannelSelection } from "../../infra/outbound/channel-selection.js";
+import { isAbortError } from "../../infra/unhandled-rejections.js";
 import type { PromptImageOrderEntry } from "../../media/prompt-image-order.js";
 import {
   classifySessionKeyShape,
@@ -151,6 +153,31 @@ function resolveSessionRuntimeWorkspace(params: {
   };
 }
 
+function shouldSkipStartupContextForSpawnedSandbox(params: {
+  cfg: OpenClawConfig;
+  sessionKey: string;
+  spawnedBy?: string;
+}): boolean {
+  if (!params.spawnedBy) {
+    return false;
+  }
+  const agentId = resolveAgentIdFromSessionKey(params.sessionKey);
+  const sandboxCfg = resolveSandboxConfigForAgent(params.cfg, agentId);
+  if (sandboxCfg.mode === "off") {
+    return false;
+  }
+  if (sandboxCfg.mode === "non-main") {
+    const mainSessionKey = resolveAgentMainSessionKey({
+      cfg: params.cfg,
+      agentId,
+    });
+    if (params.sessionKey.trim() === mainSessionKey.trim()) {
+      return false;
+    }
+  }
+  return sandboxCfg.workspaceAccess !== "rw";
+}
+
 function emitSessionsChanged(
   context: Pick<
     GatewayRequestHandlerOptions["context"],
@@ -261,10 +288,17 @@ function dispatchAgentRunFromGateway(params: {
   }
   void agentCommandFromIngress(params.ingressOpts, defaultRuntime, params.context.deps)
     .then((result) => {
+      const aborted = result?.meta?.aborted === true;
+      // Note: upstream wraps tryFinalizeTrackedAgentTask({ status: ... }) here.
+      // That wrapper does not exist at the v2026.4.20 baseline; the cherry-pick
+      // 0459206c40 brought the call without the wrapper definition. Removed
+      // the dead block — the terminal-snapshot benefit (the `aborted` extraction
+      // and stopReason payload below) is preserved.
       const payload = {
         runId: params.runId,
-        status: "ok" as const,
-        summary: "completed",
+        status: aborted ? ("timeout" as const) : ("ok" as const),
+        summary: aborted ? "aborted" : "completed",
+        ...(aborted ? { stopReason: result?.meta?.stopReason ?? "rpc" } : {}),
         result,
       };
       setGatewayDedupeEntry({
@@ -281,25 +315,31 @@ function dispatchAgentRunFromGateway(params: {
       params.respond(true, payload, undefined, { runId: params.runId });
     })
     .catch((err) => {
+      const aborted = isAbortError(err);
+      // Note: upstream wraps tryFinalizeTrackedAgentTask({...}) here using the
+      // resolveFailedTrackedAgentTaskStatus helper. Neither exists at the
+      // v2026.4.20 baseline; removed the dead block per the same reasoning
+      // as the .then() handler above.
       const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
       const payload = {
         runId: params.runId,
-        status: "error" as const,
-        summary: String(err),
+        status: aborted ? ("timeout" as const) : ("error" as const),
+        summary: aborted ? "aborted" : String(err),
+        ...(aborted ? { stopReason: "rpc" } : {}),
       };
       setGatewayDedupeEntry({
         dedupe: params.context.dedupe,
         key: `agent:${params.idempotencyKey}`,
         entry: {
           ts: Date.now(),
-          ok: false,
+          ok: aborted,
           payload,
-          error,
+          ...(aborted ? {} : { error }),
         },
       });
-      params.respond(false, payload, error, {
+      params.respond(aborted, payload, aborted ? undefined : error, {
         runId: params.runId,
-        error: formatForLog(err),
+        ...(aborted ? {} : { error: formatForLog(err) }),
       });
     });
 }
@@ -895,18 +935,27 @@ export const agentHandlers: GatewayRequestHandlers = {
     }
 
     if (shouldPrependStartupContext && resolvedSessionKey) {
-      const { runtimeWorkspaceDir } = resolveSessionRuntimeWorkspace({
-        cfg: cfgForAgent ?? cfg,
-        sessionKey: resolvedSessionKey,
-        sessionEntry,
-        spawnedBy: spawnedByValue,
-      });
-      const startupContextPrelude = await buildSessionStartupContextPrelude({
-        workspaceDir: runtimeWorkspaceDir,
-        cfg: cfgForAgent ?? cfg,
-      });
-      if (startupContextPrelude) {
-        message = `${startupContextPrelude}\n\n${message}`;
+      const startupCfg = cfgForAgent ?? cfg;
+      if (
+        !shouldSkipStartupContextForSpawnedSandbox({
+          cfg: startupCfg,
+          sessionKey: resolvedSessionKey,
+          spawnedBy: spawnedByValue,
+        })
+      ) {
+        const { runtimeWorkspaceDir } = resolveSessionRuntimeWorkspace({
+          cfg: startupCfg,
+          sessionKey: resolvedSessionKey,
+          sessionEntry,
+          spawnedBy: spawnedByValue,
+        });
+        const startupContextPrelude = await buildSessionStartupContextPrelude({
+          workspaceDir: runtimeWorkspaceDir,
+          cfg: startupCfg,
+        });
+        if (startupContextPrelude) {
+          message = `${startupContextPrelude}\n\n${message}`;
+        }
       }
     }
 

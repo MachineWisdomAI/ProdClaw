@@ -2,7 +2,90 @@
 
 Docs: https://docs.openclaw.ai
 
-## Unreleased
+## ProdClaw 1.0.1-rc.1
+
+24 cherry-picked fixes from upstream OpenClaw onto the v2026.4.20 baseline.
+Each fix targets code present at the baseline and is self-contained (no
+dependency on newer feature-train code). Upstream PR/issue numbers are noted
+where available; commit references are upstream OpenClaw SHAs preserved in
+this fork. The MK-51 / MK-52 fixes resolve the production incidents
+documented in the linked Iris tickets.
+
+### Security
+
+- Stop implicit tool grants from config sections (upstream #47487, #75055).
+- Bound bootstrap handoff scopes in device pairing (upstream #72919).
+- Reject invalid remote setup URLs in device pairing (commit `7c51cd2baf`).
+- CodeQL: iterative HTML tag stripping prevents nested-tag bypass; timing-safe
+  secret comparison (commit `7c5bf1c675`).
+- Gate startup context for sandboxed spawned sessions (upstream #73611).
+
+### Crash / Hang
+
+- Gateway: align sessions abort wait semantics so abort no longer hangs
+  (upstream #74751). Thanks @BunsDev.
+- Embedded agent runs: lifecycle backstop ensures runs finalize when the
+  embedded path fails to terminate cleanly (commit `ebff12e84f`).
+- Launcher: handle empty-string `NODE_COMPILE_CACHE` env so the launcher does
+  not crash on edge-case environments (upstream #74696).
+
+### Correctness — Gateway / Sessions
+
+- **Outbound: hold active-delivery claim so reconnect drain skips live sends**
+  (commit `c94a8702c7`). Part of the MK-51 fix train. Prevents reconnect
+  drain from re-driving an entry that the live send is still writing to
+  the adapter.
+- Gateway: preserve RPC abort terminal snapshots so wait-for-completion
+  clients receive the final state on aborted runs (commit `0459206c40`).
+- Agents: preserve string user content when merging turns; normalize
+  string-form content to content-part arrays before merge (commit
+  `9061d1e4c3`).
+- Derive dynamic context-window guard thresholds from model capabilities
+  instead of hardcoded values (commit `13e917e292`).
+
+### Correctness — Cron / Commands / Config
+
+- **Cron: preserve current delivery target context** (commit `e309fd485e`).
+  Resolves the WOD/Fajr scheduler incident (Iris MK-52). Cron announce jobs
+  created from a Telegram (or other channel) context now persist the
+  current delivery target metadata so unattended runs deliver to the
+  originating chat instead of failing with
+  "Delivering to <channel> requires target <chatId>".
+- **Cron: isolate cron context-engine session keys** (upstream #72292,
+  commit `a3c51f91c5`). Resolves the stale-WOD-context incident
+  (Iris MK-51). Threads `runSessionKey` through the isolated-agent
+  execution context so cron-emitted system events no longer accumulate
+  against the main session and bleed into the next user message.
+- Cron: preserve model overrides for text-mode cron payloads (upstream
+  #73946).
+- Cron: reject invalid cron edits on disabled jobs to prevent silent state
+  corruption (upstream #74720).
+- Cron: catch croner parse errors in `cron.add` and `cron.update` handlers
+  so bad expressions return a structured error instead of crashing the
+  gateway (upstream #74193).
+- Cron: accept `delivery.threadId` (string or number) in the gateway schema
+  for threaded announce delivery, e.g. Telegram forum topics (commit
+  `b6be422306`).
+- Config: accept the previously documented WhatsApp `exposeErrorText` key
+  to prevent validation failures on existing configs (upstream #74667).
+
+### Correctness — Channels / Delivery
+
+- Exec: preserve `turnSourceChannel` as `messageProvider` in approval
+  followup runs (upstream #74666).
+- Feishu: skip empty-text messages with no media to prevent blank session
+  turns (upstream #74634, #74661).
+- Heartbeat: interpolate response prefix templates so variables like
+  `{model}` render instead of appearing literally (upstream #73996).
+  Thanks @yweiii and @JunJD.
+- ACP: fall through to thread-bound resolution when an ACP token is
+  unresolvable, instead of failing auto-reply silently (upstream #66299,
+  #74641).
+
+### Correctness — Extensions
+
+- Mattermost: WebSocket ping/pong keepalive prevents idle connection drops
+  on servers with aggressive timeout policies (upstream #73979).
 
 ## 2026.4.20
 

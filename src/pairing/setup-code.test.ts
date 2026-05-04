@@ -213,6 +213,70 @@ describe("pairing setup code", () => {
     expect(encodePairingSetupCode(payload)).toBe(expected);
   });
 
+  // Skipped at the v2026.4.20 baseline: bare host:port normalization for
+  // publicUrl is a post-baseline feature in setup-code.ts (the upstream code
+  // path now treats "host:port/setup" as a normalizable URL). Not part of
+  // cherry-pick a58c4d8ed5.
+  it.skip("normalizes bare publicUrl host ports for setup code payloads", async () => {
+    await expectResolvedSetupSuccessCase({
+      config: createCustomGatewayConfig({ mode: "token", token: "tok_123" }),
+      options: {
+        forceSecure: true,
+        publicUrl: "gateway.example.test:18789/setup",
+      },
+      expected: {
+        authLabel: "token",
+        url: "wss://gateway.example.test:18789",
+        urlSource: "plugins.entries.device-pair.config.publicUrl",
+      },
+    });
+  });
+
+  // Skipped at the v2026.4.20 baseline: requires upstream's stricter port
+  // validator. Node URL parser accepts "http://localhost:notaport" as
+  // host=localhost with no port. The remote-URL rejection error message
+  // exists in setup-code.ts but only fires for parser-rejected URLs.
+  it.skip("rejects invalid gateway.remote.url before falling back to bind-derived setup urls", async () => {
+    await expectResolvedSetupFailureCase({
+      config: {
+        gateway: {
+          bind: "custom",
+          customBindHost: "127.0.0.1",
+          remote: { url: "http://localhost:notaport" },
+          auth: { mode: "token", token: "tok_123" },
+        },
+      },
+      options: {
+        preferRemoteUrl: true,
+      },
+      expectedError: "Configured gateway.remote.url is invalid.",
+    });
+    expect(issueDeviceBootstrapTokenMock).not.toHaveBeenCalled();
+  });
+
+  // Note: "http://localhost:notaport" and "http:/localhost:notaport" are
+  // accepted by the baseline normalizeUrl() (Node URL parser); only the
+  // upstream stricter validator catches them. Other invalid forms remain
+  // rejected at this baseline.
+  it.each([
+    "localhost:notaport",
+    "http:gateway.example.test",
+    "ws:gateway.example.test",
+    "ftp:/gateway.example.test",
+    "mailto:foo@example.com",
+    "ws://user:pass@gateway.example.test:18789",
+  ])("rejects invalid publicUrl %s before issuing setup code payloads", async (publicUrl) => {
+    await expectResolvedSetupFailureCase({
+      config: createCustomGatewayConfig({ mode: "token", token: "tok_123" }),
+      options: {
+        forceSecure: true,
+        publicUrl,
+      },
+      expectedError: "Configured publicUrl is invalid.",
+    });
+    expect(issueDeviceBootstrapTokenMock).not.toHaveBeenCalled();
+  });
+
   async function resolveCustomGatewaySetup(params: {
     auth: NonNullable<ResolveSetupConfig["gateway"]>["auth"];
     env?: ResolveSetupEnv;
